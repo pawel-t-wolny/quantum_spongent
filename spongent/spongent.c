@@ -174,6 +174,7 @@ void Permute(hashState *state)
 		PrintState(state);
 #endif
 		/* Add counter values */
+		PrintState(state);
 		state->value[0]			^= IV & 0xFF;
 		state->value[1]			^= (IV >> 8) & 0xFF;
 		printf("IV: %hu \n", IV);

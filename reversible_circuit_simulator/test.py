@@ -71,16 +71,7 @@ def get_permutation(mapping: Mapping):
     reverse_mapping = [get_permuted_index(i) for i in mapping]
     return new_mapping, reverse_mapping
 
-# c_working = ReversibleCircuit(88, [
-#     l_counter_gate(0, list(range(88))),
-#     sbox_layer(list(range(88))),
-#     l_counter_gate(1, get_permutation(list(range(88)))[0]),
-#     sbox_layer(get_permutation(list(range(88)))[0]),
-#     l_counter_gate(2, get_permutation(get_permutation(list(range(88)))[1])[0]),
-# ])
-# working_mapping = get_permutation(get_permutation(list(range(88)))[1])[1]
-
-def pi_permutation_gate(gate_mapping: Mapping, register_mapping):
+def pi_permutation_gate(gate_mapping: Mapping, register_mapping: Mapping):
     pi_permutation = ReversibleCircuit(88)
 
     for round_number in range(45):
@@ -90,26 +81,49 @@ def pi_permutation_gate(gate_mapping: Mapping, register_mapping):
     
     return pi_permutation.to_gate(list(range(88)), "pi_permutation"), gate_mapping, register_mapping
 
-c = ReversibleCircuit(88)
-pi, gate_mapping, register_mapping = pi_permutation_gate(list(range(88)), list(range(88)))
+def absorb_phase_gate(message_size: int):
+    absorb_phase = ReversibleCircuit(88 + message_size - 8) # The first 8 bits of the message are fed directly into the first 8 bits of the state
 
-c.append_gate(pi)
+    gate_mapping = list(range(88))
+    register_mapping = list(range(88))
 
-pi2, gate_mapping, register_mapping = pi_permutation_gate(gate_mapping, register_mapping)
+    for i in range (0, message_size, 8):
+        pi_permutation, gate_mapping, register_mapping = pi_permutation_gate(gate_mapping, register_mapping)
+        absorb_phase.append_gate(pi_permutation)
+        for j, k in enumerate(range(i, min(i + 8, message_size - 8))):
+            absorb_phase.cx(88 + k, gate_mapping[j])
+    
+    return absorb_phase.to_gate(list(range(88 + message_size - 8)), "absorb_phase"), register_mapping
 
-c.append_gate(pi2)
+c = ReversibleCircuit(104)
 
-pi3, gate_mapping, register_mapping = pi_permutation_gate(gate_mapping, register_mapping)
+absorb_gate, register_mapping = absorb_phase_gate(24)
 
-c.append_gate(pi3)
+c.append_gate(absorb_gate)
 
-input_bits = "0"*88
+# c = ReversibleCircuit(88)
+# pi, gate_mapping, register_mapping = pi_permutation_gate(list(range(88)), list(range(88)))
+
+# c.append_gate(pi)
+
+# pi2, gate_mapping, register_mapping = pi_permutation_gate(gate_mapping, register_mapping)
+
+# c.append_gate(pi2)
+
+# pi3, gate_mapping, register_mapping = pi_permutation_gate(gate_mapping, register_mapping)
+
+# c.append_gate(pi3)
+
+input_bits = "0100000101000001" + "0"*80 + "01000001" 
 
 result = c.run(input_bits)
 # working_result = c_working.run(input_bits)
 
+# print(gate_mapping)
+# print(register_mapping)
+
 output = [None]*88
-for position, bit in zip(reversed(register_mapping), result):
+for position, bit in zip(reversed(register_mapping), result[-88:]):
     output[87 - position] = bit
 
 print(ba2hex(result))

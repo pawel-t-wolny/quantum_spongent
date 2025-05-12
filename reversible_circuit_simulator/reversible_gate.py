@@ -37,7 +37,7 @@ class ReversibleGate(ABC):
     #   So for each entry of the array think like "The input 0 of the gate gets mapped to input register 3, 
     #   input 1 gets mapped to input register 0, etc.".
     #
-    #   To make it even more clear here is an example with a CCNOT gate on 4 registers. When 
+    #   To make it even more cleare here is a more explict example with a CCNOT gate on 4 registers. When 
     #   gate_mapping = [0, 1, 2] we get:
     #   
     #         Inputs:    X3     X2     X1     X0
