@@ -300,7 +300,14 @@ HashReturn SpongentHash(const BitSequence *data, DataLength databitlen, BitSeque
 	res = Init(&state, hashval); 	
 	if(res != SUCCESS)
 		return res;	
-	
+
+	printf("Input data (%llu bits):\n", databitlen);
+	size_t datalen_bytes = databitlen / 8 + (databitlen % 8 ? 1 : 0);
+	for (size_t i = 0; i < datalen_bytes; i++) {
+		printf("%02X", data[i]);
+	}
+	printf("\n\n");
+
 	/* Absorb available message blocks */
 	while(databitlen >= rate)
 	{

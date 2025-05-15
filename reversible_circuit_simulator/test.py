@@ -1,7 +1,6 @@
 from reversible_circuit import ReversibleCircuit
 from custom_types import Mapping
 from bitarray.util import ba2hex
-from custom_gate import CustomGate
 from bitarray import bitarray
 
 def lfsr_state(round: int, initial_state: str = '000101', taps: list = [4, 5]):
@@ -82,49 +81,72 @@ def pi_permutation_gate(gate_mapping: Mapping, register_mapping: Mapping):
     return pi_permutation.to_gate(list(range(88)), "pi_permutation"), gate_mapping, register_mapping
 
 def absorb_phase_gate(message_size: int):
+    padding_size = 8 - message_size % 8
+
     absorb_phase = ReversibleCircuit(88 + message_size - 8) # The first 8 bits of the message are fed directly into the first 8 bits of the state
 
     gate_mapping = list(range(88))
     register_mapping = list(range(88))
 
-    for i in range (0, message_size, 8):
+    remaining_bits = message_size - 8
+
+    for i in range (0, message_size - 8, 8):
         pi_permutation, gate_mapping, register_mapping = pi_permutation_gate(gate_mapping, register_mapping)
         absorb_phase.append_gate(pi_permutation)
-        for j, k in enumerate(range(i, min(i + 8, message_size - 8))):
+
+        for j, k in enumerate(range(i, i + min(8, remaining_bits))):
             absorb_phase.cx(88 + k, gate_mapping[j])
+
+        remaining_bits -= min(8, remaining_bits)
+        
+        if remaining_bits == 0:
+
+            if padding_size == 8:
+                pi_permutation, gate_mapping, register_mapping = pi_permutation_gate(gate_mapping, register_mapping)
+                absorb_phase.append_gate(pi_permutation)
+            
+            absorb_phase.x(gate_mapping[7])
+
+            pi_permutation, gate_mapping, register_mapping = pi_permutation_gate(gate_mapping, register_mapping)
+            absorb_phase.append_gate(pi_permutation)
+                    
+    return absorb_phase.to_gate(list(range(88 + message_size - 8)), "absorb_phase"), gate_mapping, register_mapping
+
+def squeeze_phase_gate(message_size: int, gate_mapping: int, register_mapping: int):
+    circuit_width = 88 + message_size - 8 + 88 # 88 bits for the state + (message_size - 8) bits for the message + 88 bits for the output hash
+
+    squeeze_phase = ReversibleCircuit(circuit_width) 
+
+    for i in range (0, message_size, 8):
+        for j in range(8):
+            squeeze_phase.cx(gate_mapping[j], circuit_width - 8 - i + j)
+        pi_permutation, gate_mapping, register_mapping = pi_permutation_gate(gate_mapping, register_mapping)
+        
+        if i < message_size - 8: # Don't add a permutation gate at the end.
+            squeeze_phase.append_gate(pi_permutation)
     
-    return absorb_phase.to_gate(list(range(88 + message_size - 8)), "absorb_phase"), register_mapping
+    return squeeze_phase.to_gate(list(range(88 + message_size - 8 + 88)), "squeeze_phase"), gate_mapping, register_mapping
 
-c = ReversibleCircuit(104)
+message_size = 256
 
-absorb_gate, register_mapping = absorb_phase_gate(24)
+c = ReversibleCircuit(88 + message_size - 8 + 88)
+
+absorb_gate, gate_mapping, register_mapping = absorb_phase_gate(message_size)
+squeeze_gate, _, register_mapping = squeeze_phase_gate(message_size, gate_mapping, register_mapping)
 
 c.append_gate(absorb_gate)
+c.append_gate(squeeze_gate)
 
-# c = ReversibleCircuit(88)
-# pi, gate_mapping, register_mapping = pi_permutation_gate(list(range(88)), list(range(88)))
-
-# c.append_gate(pi)
-
-# pi2, gate_mapping, register_mapping = pi_permutation_gate(gate_mapping, register_mapping)
-
-# c.append_gate(pi2)
-
-# pi3, gate_mapping, register_mapping = pi_permutation_gate(gate_mapping, register_mapping)
-
-# c.append_gate(pi3)
-
-input_bits = "0100000101000001" + "0"*80 + "01000001" 
+input_bits = "0"*88 + "0"*224 + "011000010111000001110101" + "0"*80 + "01100100"
 
 result = c.run(input_bits)
-# working_result = c_working.run(input_bits)
 
-# print(gate_mapping)
-# print(register_mapping)
-
-output = [None]*88
+state = [None]*88
 for position, bit in zip(reversed(register_mapping), result[-88:]):
-    output[87 - position] = bit
+    state[87 - position] = bit
+
+output = result[0:88]
 
 print(ba2hex(result))
+print(ba2hex(bitarray(''.join(map(str, state)))))
 print(ba2hex(bitarray(''.join(map(str, output)))))

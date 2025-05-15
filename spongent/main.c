@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
 
 	int i;
   
-BitSequence message[256] = {'A', 'A', 'A'};
+BitSequence message[256] = {'d', 'u', 'p', 'a'};
 
 if (argc>1) {
 	for (i = 0; i < strlen(argv[1]); i++)
