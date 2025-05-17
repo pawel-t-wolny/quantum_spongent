@@ -1,16 +1,17 @@
+/*
+	* SPONGENT hash function - Implementation
+	* This code is placed in the public domain
+	* For more information, feedback or questions, please refer to our website:
+	* https://sites.google.com/site/spongenthash/
+
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <time.h>
-#include "spongent.h"
-
-void print_binary8(unsigned char val) {
-    for (int i = 7; i >= 0; i--) {
-        printf("%d", (val >> i) & 1);
-    }
-    printf("\n");
-}
+#include "Spongent.h"
 
 /* Spongent S-box */
 int S[16] = { 0xe, 0xd, 0xb, 0x0, 0x2, 0x1, 0x4, 0xf, 0x7, 0xa, 0x8, 0x5, 0x9, 0xc, 0x3, 0x6};
@@ -174,34 +175,19 @@ void Permute(hashState *state)
 		PrintState(state);
 #endif
 		/* Add counter values */
-		PrintState(state);
 		state->value[0]			^= IV & 0xFF;
 		state->value[1]			^= (IV >> 8) & 0xFF;
-		printf("IV: %hu \n", IV);
-		print_binary8(IV & 0xFF);
-		printf("\n");
 		INV_IV	= retnuoCl(IV);
-		state->value[nSBox-1]	^= (INV_IV >> 8) & 0xFF;
+		state->value[nSBox-1]	^= (INV_IV >> 8) & 0xFF;;
 		state->value[nSBox-2]	^= INV_IV & 0xFF;		
-		printf("INV_IV: %hu \n", INV_IV);
-		print_binary8((INV_IV >> 8) & 0xFF);
-		printf("\n");
 		IV	= lCounter(IV);
-
-		printf("lCounter Layer: ");
-		PrintState(state);
 		
 		/* sBoxLayer layer */
 		for ( j=0; j < nSBox; j++)	
 			state->value[j] =  sBoxLayer[state->value[j]];
-
-		printf("Sbox Layer: ");
-		PrintState(state);
 		
 		/* pLayer */
 		pLayer(state);\
-		printf("pLayer Layer: ");
-		PrintState(state);
 	}
 #ifdef _PrintState_
 	printf("%3d\t", i);
@@ -235,7 +221,6 @@ HashReturn Init(hashState *state, BitSequence *hashval )
 }
 
 //--------------------------------------------------------------------------------------------
-
 
 HashReturn Absorb(hashState *state)
 {
@@ -300,14 +285,7 @@ HashReturn SpongentHash(const BitSequence *data, DataLength databitlen, BitSeque
 	res = Init(&state, hashval); 	
 	if(res != SUCCESS)
 		return res;	
-
-	printf("Input data (%llu bits):\n", databitlen);
-	size_t datalen_bytes = databitlen / 8 + (databitlen % 8 ? 1 : 0);
-	for (size_t i = 0; i < datalen_bytes; i++) {
-		printf("%02X", data[i]);
-	}
-	printf("\n\n");
-
+	
 	/* Absorb available message blocks */
 	while(databitlen >= rate)
 	{
@@ -369,3 +347,42 @@ HashReturn SpongentHash(const BitSequence *data, DataLength databitlen, BitSeque
 
 
 //--------------------------------------------------------------------------------------------
+
+
+int main(int argc, char *argv[])
+{
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <message>\n", argv[0]);
+        return 1;
+    }
+
+	int i;
+	BitSequence hashval[hashsize / 8] = { 0 };
+	
+    BitSequence *message = (BitSequence *)argv[1];
+    DataLength databitlen = strlen((char *)message) * 8;
+
+	//	BitSequence message[256] = {'S', 'p', 'o', 'n', 'g', 'e', ' ', '+', ' ', 
+	//								'P', 'r', 'e', 's', 'e', 'n', 't', ' ', '=', ' ', 
+	//								'S', 'p', 'o', 'n', 'g', 'e', 'n', 't'};   	
+
+	//	BitSequence message[256] = {0x53, 0x70, 0x6F, 0x6E, 0x67, 0x65, 0x20, 0x2B, 
+	//								0x20, 0x50, 0x72, 0x65, 0x73, 0x65, 0x6E, 0x74, 
+	//								0x20, 0x3D, 0x20, 0x53, 0x70, 0x6F, 0x6E, 0x67, 0x65, 0x6E, 0x74};
+
+	printf("Message(String)\t:%s\n", message);
+	printf("Message(Hex)\t:");
+	for (i = 0; i < databitlen / 8; i++) {
+		printf("%02X", message[i]);
+	}
+	printf("\n");
+
+	SpongentHash(message, databitlen, hashval);
+
+	printf("Hash\t\t:");
+	for (i = 0; i<hashsize / 8; i++)
+		printf("%.2X", hashval[i]);
+	printf("\n");
+		
+	return 0;
+}
