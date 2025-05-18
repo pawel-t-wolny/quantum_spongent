@@ -5,16 +5,18 @@ SRCS = main.cpp
 TARGET = spongent
 DEBUG_TARGET = spongent_debug
 
+BINARIES_DIR = bin
+
 all: $(TARGET)
 
 $(TARGET): $(SRCS)
-	$(CXX) $(CXXFLAGS) $(SRCS) -o $(TARGET)
+	$(CXX) $(CXXFLAGS) $(SRCS) -o ./${BINARIES_DIR}/$(TARGET)
 
 debug: $(DEBUG_TARGET)
 
 $(DEBUG_TARGET): $(SRCS)
-	$(CXX) $(CXXFLAGS) -D_PrintState_ $(SRCS) -o $(DEBUG_TARGET)
+	$(CXX) $(CXXFLAGS) -D_PrintState_ $(SRCS) -o ./$(BINARIES_DIR)/$(DEBUG_TARGET)
 
 clean:
-	rm -f $(TARGET) $(DEBUG_TARGET)
+	rm -f $(BINARIES_DIR)/*
 

@@ -62,7 +62,7 @@ def sbox_gate_factory():
     return sbox.to_gate("sbox")
 
 
-def sbox_layer_factory():
+def sbox_layer_gate_factory():
     sbox_layer = ReversibleCircuit(B)
 
     for i in range(0, B, SBOX_WIDTH):
@@ -93,7 +93,7 @@ def pi_permutation_gate(gate_mapping: Mapping, register_mapping: Mapping):
 
     for round_number in range(ROUNDS):
         l_counter_gate = l_counter_gate_factory(round_number)
-        sbox_layer_gate = sbox_layer_factory()
+        sbox_layer_gate = sbox_layer_gate_factory()
 
         pi_permutation.append(l_counter_gate, gate_mapping)
         pi_permutation.append(sbox_layer_gate, gate_mapping)
@@ -107,15 +107,14 @@ def absorb_phase_gate_factory(message_size: int):
     padding_size = R - excess_bits
 
     absorb_phase = ReversibleCircuit(
-        B + message_size - R
+        B + max(message_size - R, 0)
     )  # The first 8 bits of the message are fed directly into the first 8 bits of the state
 
     gate_mapping = list(range(B))
     register_mapping = list(range(B))
 
-    remaining_bits = message_size - R
-
-    for i in range(0, message_size - R - excess_bits, R):
+    i = 0
+    for i in range(0, max(message_size - R, 0) - excess_bits, R):
         pi_permutation, gate_mapping, register_mapping = pi_permutation_gate(
             gate_mapping, register_mapping
         )
@@ -124,23 +123,21 @@ def absorb_phase_gate_factory(message_size: int):
         for j, k in enumerate(range(i, i + R)):
             absorb_phase.cx(B + k, gate_mapping[j])
 
-        remaining_bits -= R
+    if message_size >= 8:
+        pi_permutation, gate_mapping, register_mapping = pi_permutation_gate(
+            gate_mapping, register_mapping
+        )
+        absorb_phase.append(pi_permutation, list(range(B)))
 
-        if remaining_bits < R:
-            pi_permutation, gate_mapping, register_mapping = pi_permutation_gate(
-                gate_mapping, register_mapping
-            )
-            absorb_phase.append(pi_permutation, list(range(B)))
+    i += R
+    for n, m in enumerate(range(i, i + excess_bits)):
+        absorb_phase.cx(B + m, gate_mapping[padding_size + n])
+    absorb_phase.x(gate_mapping[padding_size - 1])
 
-            i += R
-            for n, m in enumerate(range(i, i + excess_bits)):
-                absorb_phase.cx(B + m, gate_mapping[padding_size + n])
-            absorb_phase.x(gate_mapping[padding_size - 1])
-
-            pi_permutation, gate_mapping, register_mapping = pi_permutation_gate(
-                gate_mapping, register_mapping
-            )
-            absorb_phase.append(pi_permutation, list(range(B)))
+    pi_permutation, gate_mapping, register_mapping = pi_permutation_gate(
+        gate_mapping, register_mapping
+    )
+    absorb_phase.append(pi_permutation, list(range(B)))
 
     return absorb_phase.to_gate("absorb_phase"), gate_mapping, register_mapping
 
@@ -148,7 +145,7 @@ def absorb_phase_gate_factory(message_size: int):
 def squeeze_phase_gate_factory(
     message_size: int, gate_mapping: int, register_mapping: int
 ):
-    squeeze_phase = ReversibleCircuit(B + message_size - R + N)
+    squeeze_phase = ReversibleCircuit(B + max(message_size - R, 0) + N)
 
     for i in range(0, N, R):
         for j in range(R):
@@ -164,7 +161,7 @@ def squeeze_phase_gate_factory(
 
 
 def reversible_spongent_gate_factory(message_size: int):
-    spongent = ReversibleCircuit(B + message_size - R + N)
+    spongent = ReversibleCircuit(B + max(message_size - R, 0) + N)
 
     absorb_gate, gate_mapping, register_mapping = absorb_phase_gate_factory(
         message_size
@@ -179,57 +176,62 @@ def reversible_spongent_gate_factory(message_size: int):
     return spongent.to_gate("spongent"), register_mapping
 
 def spongent_circuit(message_size: int):
-    circuit_width = B + message_size - R + N
+    circuit_width = B + max(message_size - R, 0) + N
     spongent_circuit = ReversibleCircuit(circuit_width)
     spongent_gate, register_mapping = reversible_spongent_gate_factory(message_size)
     spongent_circuit.append(spongent_gate, list(range(circuit_width)))
 
     return spongent_circuit, register_mapping
 
-quiet = False
+if __name__ == "__main__":
+    quiet = False
 
-match len(sys.argv):
-    case 3:
-        if sys.argv[1] == "-q":
-            quiet = True
-            message = sys.argv[2]
-        else:
-            print(f"Invalid flag: {sys.argv[1]}")
+    match len(sys.argv):
+        case 3:
+            if sys.argv[1] == "-q":
+                quiet = True
+                message = sys.argv[2]
+            else:
+                print(f"Invalid flag: {sys.argv[1]}")
+                exit(1)
+        case 2:
+            message = sys.argv[1]
+        case 1:
+            message = ""
+        case _:
+            print("Wrong number of arguments.")
             exit(1)
-    case 2:
-        message = sys.argv[1]
-    case 1:
-        message = "Monkey"
-    case _:
-        print("Wrong number of arguments.")
-        exit(1)
 
-message_encoded = message.encode()
+    message_encoded = message.encode()
 
-message_size = len(message) * 8
-message_bytes = [format(b, "08b") for b in message_encoded]
+    message_size = len(message) * 8
+    message_bytes = [format(b, "08b") for b in message_encoded]
 
+    if message_bytes:
+        input_bits = (
+            "0" * N + "".join(reversed(message_bytes[1:])) + "0" * (B - R) + message_bytes[0]
+        )
+    else:
+        input_bits = (
+            "0" * (N + B)
+        )
 
-input_bits = (
-    "0" * N + "".join(reversed(message_bytes[1:])) + "0" * (B - R) + message_bytes[0]
-)
+    spongent_circuit, register_mapping = spongent_circuit(message_size)
+    result = spongent_circuit.run(input_bits)
 
-spongent_circuit, register_mapping = spongent_circuit(message_size)
-result = spongent_circuit.run(input_bits)
+    state = [None] * B
+    for position, bit in zip(register_mapping, reversed(result[-B:])):
+        state[position] = bit
 
-state = [None] * B
-for position, bit in zip(register_mapping, reversed(result[-B:])):
-    state[position] = bit
+    state_hex = ba2hex(bitarray("".join(map(str, reversed(state))))).upper()
 
-state_hex = ba2hex(bitarray("".join(map(str, reversed(state))))).upper()
+    output = result[0:N]
+    output_hex = ba2hex(bitarray("".join(map(str, output)))).upper()
 
-output = result[0:N]
-output_hex = ba2hex(bitarray("".join(map(str, output)))).upper()
-
-if not quiet:
-    print(f"Message(String) :{message}")
-    print(f"Message(Hex)    :{message_encoded.hex().upper()}")
-    print(f"Hash            :{output_hex}")
-    print(f"State           :{state_hex}")
-else:
-    print(output_hex)
+    if not quiet:
+        print(f"Message(String) :{message}")
+        print(f"Message(Hex)    :{message_encoded.hex().upper()}")
+        print(f"Hash            :{output_hex}")
+        print(f"State           :{state_hex}")
+    else:
+        print(output_hex)

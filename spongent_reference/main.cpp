@@ -351,16 +351,39 @@ HashReturn SpongentHash(const BitSequence *data, DataLength databitlen, BitSeque
 
 int main(int argc, char *argv[])
 {
-    if (argc != 2) {
-        fprintf(stderr, "Usage: %s <message>\n", argv[0]);
+    if (argc > 3) {
+        fprintf(stderr, "Usage: %s [-q] <message>\n", argv[0]);
         return 1;
     }
 
+    BitSequence *message;
+    
+
 	int i;
 	BitSequence hashval[hashsize / 8] = { 0 };
-	
-    BitSequence *message = (BitSequence *)argv[1];
+    bool quiet_mode = false;
+
+    if (argc == 1) {
+        message = (BitSequence *)"";
+    }
+
+    if (argc == 2) {
+        message = (BitSequence *)argv[1];
+    }
+
+    if (argc == 3) {
+        if (strcmp(argv[1], "-q") == 0) {
+            quiet_mode = true;
+            message = (BitSequence *)argv[2];
+        }
+        else {
+            printf("Invalid flag: %s\n", argv[1]);
+            exit(1);
+        }
+    }
+
     DataLength databitlen = strlen((char *)message) * 8;
+    
 
 	//	BitSequence message[256] = {'S', 'p', 'o', 'n', 'g', 'e', ' ', '+', ' ', 
 	//								'P', 'r', 'e', 's', 'e', 'n', 't', ' ', '=', ' ', 
@@ -370,16 +393,22 @@ int main(int argc, char *argv[])
 	//								0x20, 0x50, 0x72, 0x65, 0x73, 0x65, 0x6E, 0x74, 
 	//								0x20, 0x3D, 0x20, 0x53, 0x70, 0x6F, 0x6E, 0x67, 0x65, 0x6E, 0x74};
 
-	printf("Message(String)\t:%s\n", message);
-	printf("Message(Hex)\t:");
-	for (i = 0; i < databitlen / 8; i++) {
-		printf("%02X", message[i]);
-	}
-	printf("\n");
+    if (!quiet_mode) {
+        printf("Message(String)\t:%s\n", message);
+        printf("Message(Hex)\t:");
+        for (i = 0; i < databitlen / 8; i++) {
+            printf("%02X", message[i]);
+        }
+        printf("\n");
+    }
+
 
 	SpongentHash(message, databitlen, hashval);
 
-	printf("Hash\t\t:");
+    if (!quiet_mode) {
+        printf("Hash\t\t:");
+    }
+	
 	for (i = 0; i<hashsize / 8; i++)
 		printf("%.2X", hashval[i]);
 	printf("\n");
