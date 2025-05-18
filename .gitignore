@@ -90,3 +90,4 @@ Desktop.ini
 .env.*
 bin
 output
+test_words.txt
