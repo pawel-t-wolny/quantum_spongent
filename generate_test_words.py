@@ -4,7 +4,7 @@ import string
 NUM_WORDS = 1000
 MIN_LEN = 1
 MAX_LEN = 32
-CHARS = string.ascii_letters + string.digits  # a-zA-Z0-9
+CHARS = string.ascii_letters + string.digits
 
 def generate_word(length):
     return ''.join(random.choices(CHARS, k=length))

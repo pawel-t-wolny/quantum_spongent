@@ -149,7 +149,7 @@ def squeeze_phase_gate_factory(
 
     for i in range(0, N, R):
         for j in range(R):
-            squeeze_phase.cx(gate_mapping[j], squeeze_phase.width - R - i + j)
+            squeeze_phase.cx(gate_mapping[j], squeeze_phase.width() - R - i + j)
 
         if i < B - R:  # Don't add a permutation gate at the end.
             pi_permutation, gate_mapping, register_mapping = pi_permutation_gate(
@@ -170,8 +170,8 @@ def reversible_spongent_gate_factory(message_size: int):
         message_size, gate_mapping, register_mapping
     )
 
-    spongent.append(absorb_gate, list(range(spongent.width - N)))
-    spongent.append(squeeze_gate, list(range(spongent.width)))
+    spongent.append(absorb_gate, list(range(spongent.width() - N)))
+    spongent.append(squeeze_gate, list(range(spongent.width())))
 
     return spongent.to_gate("spongent"), register_mapping
 

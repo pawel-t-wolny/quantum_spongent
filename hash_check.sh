@@ -12,8 +12,12 @@ PYTHON="python3"
 
 # Ensure test_words.txt exists
 if [[ ! -f "$TEST_WORDS_FILE" ]]; then
-  echo "Error: test_words.txt not found."
-  exit 1
+  echo "test_words.txt not found. Generating..."
+  "$PYTHON" generate_test_words.py > "$TEST_WORDS_FILE"
+  if [[ $? -ne 0 ]]; then
+    echo "Error: Failed to generate test_words.txt"
+    exit 1
+  fi
 fi
 
 run_test_case() {
@@ -56,3 +60,4 @@ while IFS= read -r word; do
   [[ -z "$word" ]] && continue
   run_test_case "$word"
 done < "$TEST_WORDS_FILE"
+
